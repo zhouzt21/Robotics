@@ -1,0 +1,79 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_ARB_shader_clock : enable
+#extension GL_GOOGLE_include_directive : enable
+
+#include "random.glsl"
+#include "ray.glsl"
+
+layout(location = 0) rayPayloadEXT Ray ray;
+
+layout(set = 0, binding = 0, rgba32f) uniform image2D outHdrColor;
+layout(set = 0, binding = 1, rgba32f) uniform image2D outAlbedo;
+layout(set = 0, binding = 2, rgba32f) uniform image2D outNormal;
+layout(set = 0, binding = 3, rgba32ui) uniform uimage2D outSegmentation;
+layout(set = 0, binding = 4, rgba32f) uniform image2D outRadiance;
+layout(set = 0, binding = 5, rgba32f) uniform image2D outPosition;
+
+layout(set = 1, binding = 0) uniform accelerationStructureEXT tlas;
+
+layout(set = 2, binding = 0) uniform CameraBuffer {
+  mat4 viewMatrix;
+  mat4 projectionMatrix;
+  mat4 viewMatrixInverse;
+  mat4 projectionMatrixInverse;
+  mat4 prevViewMatrix;
+  mat4 prevViewMatrixInverse;
+  float width;
+  float height;
+} cameraBuffer;
+
+#include "push_constant.glsl"
+
+void main() {
+    int totalRays = int(gl_LaunchSizeEXT.x * gl_LaunchSizeEXT.y);
+    int rayIndex = int(gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x);
+    if (rayIndex >= totalRays) {
+        return;
+    }
+
+    // Ray origin in world frame
+    vec4 rayOriginWorld = cameraBuffer.viewMatrixInverse * vec4(0.0, 0.0, 0.0, 1.0);
+
+    // Ray direction in world frame
+    float deltaAngle = 2.0 * M_PI / float(totalRays);
+    float angle = deltaAngle * float(rayIndex);
+    vec3 rayDir = vec3(cos(angle), 0.0, sin(angle));
+    vec4 rayDirWorld = cameraBuffer.viewMatrixInverse * vec4(rayDir, 0.0);
+
+    ray.origin = rayOriginWorld.xyz;
+    ray.direction = normalize(rayDirWorld.xyz);
+    ray.albedo = vec3(0.0);
+    ray.normal = vec3(0.0);
+    ray.radiance = vec3(0.0);
+    ray.alpha = 1.0;
+    ray.attenuation = vec3(1.0);
+    ray.depth = 0;
+    float tMin = 0.1f;
+    float tMax = 10000.0f;
+
+    // Ray tracing step
+    traceRayEXT(tlas,
+                gl_RayFlagsNoneEXT,
+                0xff,
+                0,
+                0,
+                0,
+                ray.origin,
+                tMin,
+                ray.direction,
+                tMax,
+                0);
+
+    // Store depth in outPosition if intersection is found
+    if (ray.depth <= maxDepth) {
+      vec4 position = cameraBuffer.viewMatrix * vec4(ray.origin, 1.0);
+      float dist = length(ray.origin - rayOriginWorld.xyz);
+      imageStore(outPosition, ivec2(gl_LaunchIDEXT.xy), vec4(position.xyz, dist));
+    }
+}
