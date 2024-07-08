@@ -44,36 +44,31 @@ ros = ROSModule('mobile_sapien', use_sim_time=False) if args.ros else None
 
 # create simulator
 sim = Simulator(
-    SimulatorConfig(viewer_camera=CameraConfig(look_at=(-1., -0.2, 0.2), p=(0., 0, 1.8)),solver_iterations=50, sim_freq=100, enable_pcm=False), 
-    robot, element, ros_module=ros
+    SimulatorConfig(
+        viewer_camera=CameraConfig(look_at=(-1., -0.2, 0.2), p=(0., 0, 1.8)),
+        solver_iterations=50, sim_freq=100, enable_pcm=False), 
+    robot, element, ros_module=ros, 
+    add_cloth=True, cloth_init_pose=sapien.Pose([-3.79, -0.747, 1.2])
 )
 
 sim.reset()
 robot.set_base_pose([-3.79, -0.747], 1.72)
 robot.articulation.set_qvel(np.zeros(robot.articulation.dof, dtype=np.float32))
 
-# TURN ON this so that the footprint is updated
-# module.update_footprint(g_radius=False)
-scene = sim._scene   ##?????
-
-# load sapien partnet urdf (scale the shelf)
-loader = scene.create_urdf_loader()
-loader.scale = 0.6
-
+scene = sim._scene
 cuboidsofabuilder = scene.create_actor_builder()
-cuboidsofabuilder.add_convex_collision_from_file(filename="../asset/rigid/cuboidsofa/cuboidsofa.obj",scale=[0.55,0.55,0.55])
-cuboidsofabuilder.add_visual_from_file(filename="../asset/rigid/cuboidsofa.glb",scale=[0.55,0.55,0.55])
+cuboidsofabuilder.add_convex_collision_from_file(filename="../assets/rigid/cuboidsofa/cuboidsofa.obj",scale=[0.55,0.55,0.55])
+cuboidsofabuilder.add_visual_from_file(filename="../assets/rigid/cuboidsofa.glb",scale=[0.55,0.55,0.55])
 cuboidsofa1=cuboidsofabuilder.build(name="cuboidsofa1")
 
 engine = sim._engine
 engine.set_pose(cuboidsofa1,Pose([-2.4, 0, 0.5], [1, 1,  -2.5, -2.5]))
 
-engine.reset()
 idx=0
-images = []
 while not sim.viewer.closed:
     # action = np.zeros(robot.action_space.shape)
     idx += 1
+    sim.viewer.paused = True
     sim.step(None) # you can pass action here to control the robot
     # if idx == 1:
     #     sim._scene.step()

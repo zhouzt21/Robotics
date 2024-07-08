@@ -11,7 +11,6 @@ from sapien import physx
 from .sensors.sensor_cfg import CameraConfig
 from .engines.cpu_engine import CPUEngine
 from .engines.gpu_engine import GPUEngineConfig, GPUEngine
-from mani_skill.envs.sapien_env import BaseEnv
 
 _Engine: CPUEngine | GPUEngine | None = None
 def get_engine() -> CPUEngine | GPUEngine:
@@ -38,6 +37,8 @@ class SimulatorConfig(Config):
 
     n_scenes: int = 1
 
+
+
 class SimulatorBase:
     """
     This is the base class to initialize the SAPIEN simulator.
@@ -50,6 +51,7 @@ class SimulatorBase:
     def __init__(self, config: SimulatorConfig):
         self.config = config
         self.contact_offset = config.contact_offset
+
         self._engine = CPUEngine() if config.gpu_config is None else GPUEngine(config.gpu_config)
         global _Engine
         _Engine = self._engine
@@ -154,7 +156,7 @@ class SimulatorBase:
         raise NotImplementedError
 
     # -------------------------------------------------------------------------- #
-    # Code for setup     sapien scene and renderer
+    # Code for setup sapien scene and renderer
     # -------------------------------------------------------------------------- #
     def _get_default_scene_config(self):
         scene_config = sapien.SceneConfig()
